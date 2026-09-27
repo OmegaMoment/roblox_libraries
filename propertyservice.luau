@@ -2,6 +2,10 @@
 --!optimize 2
 --[[
 	! for this PLEASE go to the url and put the string inside of a modulescript INSIDE of the module. 
+	! so it'd be something like 
+	return [=[
+		string
+	]=]
 	! it will be used as a fallback incase u can't fetch it.
 
 	this is a reformat of what i made a while back, i haven't done that much lua work in a while... TwT
