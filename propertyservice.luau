@@ -229,7 +229,7 @@ function propertyservice.fetch_classes()
 	end
 
 	print(`[propertyservice]: successfully processed the apidump. time_elapsed: {os_clock() - start_time}`)
-	local decoded = HttpService:JSONDecode(raw_api :: string)
+	local decoded = HttpService:JSONDecode(raw_api)
 
 	local class_count = 0
 	local enum_count = 0
