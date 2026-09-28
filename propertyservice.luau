@@ -33,6 +33,8 @@ local tonumber = tonumber
 local Color3_new = Color3.new
 local Vector3_new = Vector3.new
 local Vector2_new = Vector2.new
+local CFrame_new = CFrame.new
+local Instance_new = Instance.new
 local UDim_new = UDim.new
 local UDim2_new = UDim2.new
 local BrickColor_new = BrickColor.new
@@ -83,73 +85,84 @@ local function parse_default_value(value_type: string, raw: string?, enum_name: 
 
 	if value_type == "number" then
 		return tonumber(raw)
-		
+
 	elseif value_type == "boolean" then
 		return raw == "true"
-		
+
 	elseif value_type == "string" then
 		return raw
-		
+
 	elseif value_type == "Color3" then
 		local r, g, b = raw:match("([%d%.]+),%s*([%d%.]+),%s*([%d%.]+)")
 		if r then
 			return Color3_new(tonumber(r), tonumber(g), tonumber(b))
 		end
-		
+
 	elseif value_type == "Vector3" then
 		local x, y, z = raw:match("([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+)")
 		if x then
 			return Vector3_new(tonumber(x), tonumber(y), tonumber(z))
 		end
-		
+
+	elseif value_type == "CFrame" then -- longest pattern ever written?
+		local x, y, z, r0, r1, r2, r10, r11, r12, r20, r21, r22 = raw:match("([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+)")
+		if x then
+			return CFrame_new(
+				tonumber(x), tonumber(y), tonumber(z),
+				tonumber(r0), tonumber(r1), tonumber(r2),
+				tonumber(r10), tonumber(r11), tonumber(r12),
+				tonumber(r20), tonumber(r21), tonumber(r22)
+			)
+		end
+
 	elseif value_type == "Vector2" then
 		local x, y = raw:match("([%d%.-]+),%s*([%d%.-]+)")
 		if x then
 			return Vector2_new(tonumber(x), tonumber(y))
 		end
-		
+
 	elseif value_type == "UDim" then
 		local scale, offset = raw:match("([%d%.-]+),%s*([%d%.-]+)")
 		if scale then
 			return UDim_new(tonumber(scale), tonumber(offset))
 		end
-		
+
 	elseif value_type == "UDim2" then
 		-- "{x scale, x offset}, {y scale, y offset}"
 		local xs, xo, ys, yo = raw:match("{([%d%.-]+),%s*([%d%.-]+)},%s*{([%d%.-]+),%s*([%d%.-]+)}")
 		if xs then
 			return UDim2_new(tonumber(xs), tonumber(xo), tonumber(ys), tonumber(yo))
 		end
-		
+
 	elseif value_type == "EnumItem" and enum_name then
 		local success, result = pcall(function()
 			return Enum[enum_name][raw]
 		end)
-		
+
 		if success and result then
 			return result
 		end
-		
+
 	elseif value_type == "BrickColor" then -- useless but whatever
 		local success, result = pcall(BrickColor_new, raw)
 		if success then
 			return result
 		end
-		
+
 	elseif value_type == "Rect" then
 		local x, y, x1, y1 = raw:match("([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+),%s*([%d%.-]+)")
 		if x then
 			return Rect_new(tonumber(x), tonumber(y), tonumber(x1), tonumber(y1))
 		end
-		
+
 	elseif value_type == "NumberRange" then
 		local mn, mx = raw:match("([%d%.-]+),%s*([%d%.-]+)")
 		if mn then
 			return NumberRange_new(tonumber(mn), tonumber(mx))
 		end
-		
+
 	end
-	
+
 	-- | fuck these TwT
 	return nil
 end
@@ -165,35 +178,35 @@ local function normalize_value(member: any): (string?, string?)
 
 	if category == "Enum" then
 		return "EnumItem", name
-		
+
 	elseif category == "Class" then
 		return "Instance", nil
-		
+
 	elseif category == "Primitive" then
 		if name == "bool" then
 			return "boolean", nil
-			
+
 		elseif name == "int" or name == "int64" or name == "Int64" or name == "double" or name == "float" then
 			return "number", nil
-			
+
 		elseif name == "string" then
 			return "string", nil
-			
+
 		else
 			-- non serializeable primitive stuff (null etc)
 			return nil, nil
 		end
-		
+
 	elseif category == "DataType" then
 		if name == "ContentId" then
 			return "string", nil -- url string
-			
+
 		elseif name == "BinaryString" or name == "DateTime" or name == "buffer" or name == "ProtectedString" then
 			return nil, nil -- not serializable
 		end
 		-- types keep their names :P
 		return name, nil
-		
+
 	elseif category == "Group" then
 		-- table based stuff not serializable TwT
 		return nil, nil
@@ -241,36 +254,33 @@ function propertyservice.fetch_classes()
 			properties = {},
 			readonly_properties = {},
 			deprecated_properties = {},
-			serializable_properties = {},
-			functions = {},
-			deprecated_functions = {},
-			events = {},
-			deprecated_events = {},
-			callbacks = {},
-			deprecated_callbacks = {},
+			loadable_properties = {},
+			saveable_properties = {},
+			saveable_loadable_properties = {},
+			serializable_properties = {}, -- just for my serializer icl-
+			
+			enum_names = {}, -- [property] = enum
 			tags = {},
 			is_creatable = true,
 			default_values = {},
-			readonly_tags = {},
-			hidden_tags = {},
-			notscriptable_tags = {},
 		}
 
 		if class.Tags then
 			for _, tag in class.Tags do
 				new_class.tags[tag] = true
-				
+
 				if tag == "NotCreatable" then
 					new_class.is_creatable = false
 				end
-				
 			end
-			
 		end
 
 		if class.Members then
 			for _, member in class.Members do
-				local member_type = member.MemberType
+				if member.MemberType ~= "Property" then
+					continue
+				end
+
 				local name = member.Name
 				local tags = member.Tags or {}
 				local is_deprecated = false
@@ -282,100 +292,61 @@ function propertyservice.fetch_classes()
 					end
 				end
 
-				if member_type == "Property" then
-					local is_property = true
-					local is_readonly = false
+				local is_property = true
+				local is_readonly = false
 
-					for _, tag in tags do
-						if unavailable_tags[tag] then
-							is_property = false
-							break
-							
-						elseif tag == "ReadOnly" then
-							is_readonly = true
-						end
-					end
-
-					local security = member.Security or {}
-					if security.Read and unavailable_contexts[security.Read] then
+				for _, tag in tags do
+					if unavailable_tags[tag] then
 						is_property = false
-						
-					elseif security.Write and unavailable_contexts[security.Write] then
+						break
+					elseif tag == "ReadOnly" then
 						is_readonly = true
 					end
-
-					if is_property then
-						local value_type, enum_name = normalize_value(member)
-						if value_type then
-							local parsed = parse_default_value(value_type, member.Default, enum_name)
-							if parsed ~= nil then
-								new_class.default_values[name] = parsed
-							end
-
-							local serialization = member.Serialization or {}
-							new_class.serializable_properties[name] = serialization.CanSave == true
-
-							if is_readonly then
-								if is_deprecated then
-									new_class.deprecated_properties[name] = value_type
-									
-								else
-									new_class.readonly_properties[name] = value_type
-								end
-							else
-								if is_deprecated then
-									new_class.deprecated_properties[name] = value_type
-									
-								else
-									new_class.properties[name] = value_type
-								end
-							end
-							
-						end
-						
-					end
-
-					-- still probably useful to record them even when filtered
-					for _, tag in tags do
-						if tag == "ReadOnly" then
-							new_class.readonly_tags[name] = true
-							
-						elseif tag == "Hidden" then
-							new_class.hidden_tags[name] = true
-							
-						elseif tag == "NotScriptable" then
-							new_class.notscriptable_tags[name] = true
-						end
-					end
-					
-				elseif member_type == "Function" then
-					if is_deprecated then
-						new_class.deprecated_functions[name] = true
-						
-					else
-						new_class.functions[name] = true
-					end
-					
-				elseif member_type == "Event" then
-					if is_deprecated then
-						new_class.deprecated_events[name] = true
-						
-					else
-						new_class.events[name] = true
-					end
-					
-				elseif member_type == "Callback" then
-					if is_deprecated then
-						new_class.deprecated_callbacks[name] = true
-						
-					else
-						new_class.callbacks[name] = true
-					end
-					
 				end
-				
+
+				local security = member.Security or {}
+				if security.Read and unavailable_contexts[security.Read] then
+					is_property = false
+				elseif security.Write and unavailable_contexts[security.Write] then
+					is_readonly = true
+				end
+
+				if is_property then
+					local value_type, enum_name = normalize_value(member)
+					if value_type then
+						local parsed = parse_default_value(value_type, member.Default, enum_name)
+						if parsed ~= nil then
+							new_class.default_values[name] = parsed
+						end
+
+						if value_type == "EnumItem" and enum_name then
+							new_class.enum_names[name] = enum_name 
+						end
+
+						local serialization = member.Serialization or {}
+						local can_save = serialization.CanSave == true
+						local can_load = serialization.CanLoad == true
+						new_class.saveable_properties[name] = can_save
+						new_class.loadable_properties[name] = can_load
+						new_class.saveable_loadable_properties[name] = can_save and can_load
+						new_class.serializable_properties[name] = can_load and not is_readonly
+
+						if is_readonly then
+							if is_deprecated then
+								new_class.deprecated_properties[name] = value_type
+							else
+								new_class.readonly_properties[name] = value_type
+							end
+						else
+							if is_deprecated then
+								new_class.deprecated_properties[name] = value_type
+							else
+								new_class.properties[name] = value_type
+							end
+						end
+					end
+				end
 			end
-			
 		end
 
 		propertyservice.classes[class.Name] = new_class
@@ -395,13 +366,14 @@ propertyservice.fetch_classes()
 function propertyservice.get_properties_of_class(class: string): ({[string]: string}, {string}, {[string]: string}, boolean, number, {[string]: boolean})
 	local cached = cache_properties[class]
 	if cached then
-		return cached.properties, cached.sorted, cached.read_only, cached.is_creatable, cached.count, cached.serializable
+		return cached.properties, cached.sorted, cached.read_only, cached.is_creatable, cached.count, cached.serializable, cached.enum_names
 	end
 
 	local properties = {}
 	local sorted_names = {}
 	local read_only = {}
 	local serializable = {}
+	local enum_names = {}
 	local current_class = class
 	local count = 0
 
@@ -419,7 +391,11 @@ function propertyservice.get_properties_of_class(class: string): ({[string]: str
 				count += 1
 				properties[name] = type
 				sorted_names[count] = name
-				serializable[name] = data.serializable_properties[name] == true
+				serializable[name] = data.loadable_properties[name] == true
+
+				if data.enum_names[name] then
+					enum_names[name] = data.enum_names[name]
+				end
 			end
 		end
 
@@ -441,9 +417,10 @@ function propertyservice.get_properties_of_class(class: string): ({[string]: str
 		is_creatable = is_creatable,
 		count = count,
 		serializable = serializable,
+		enum_names = enum_names,
 	}
 
-	return properties, sorted_names, read_only, is_creatable, count, serializable
+	return properties, sorted_names, read_only, is_creatable, count, serializable, enum_names
 end
 
 -- | returns [property] = type
@@ -504,6 +481,10 @@ function propertyservice.fetch_default_properties(class: string): {[string]: any
 	return property_to_value
 end
 
+local function get_property(inst, name)
+	return inst[name]
+end
+
 function propertyservice.fetch_runtime_default_properties(class: string): {[string]: any}
 	local cached = cache_runtime_defaults[class]
 	if cached then
@@ -515,12 +496,11 @@ function propertyservice.fetch_runtime_default_properties(class: string): {[stri
 
 	local class_data = propertyservice.classes[class]
 	if not class_data or not class_data.is_creatable then
-		-- | gotta get the dump, can't get it from runtime :P 
 		cache_runtime_defaults[class] = dump_defaults
 		return dump_defaults
 	end
 
-	local created, instance = pcall(Instance.new, class)
+	local created, instance = pcall(Instance_new, class)
 	if not created or not instance then
 		cache_runtime_defaults[class] = dump_defaults
 		return dump_defaults
@@ -529,14 +509,11 @@ function propertyservice.fetch_runtime_default_properties(class: string): {[stri
 	local runtime_defaults = {}
 
 	for name in properties do
-		local success, value = pcall(function()
-			return instance[name]
-		end)
+		local success, value = pcall(get_property, instance, name)
 
 		if success then
 			runtime_defaults[name] = value
 		else
-			-- | error? wtf?
 			runtime_defaults[name] = dump_defaults[name]
 		end
 	end
