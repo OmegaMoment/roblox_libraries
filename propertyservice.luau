@@ -78,7 +78,7 @@ local dump_guards = { -- strings the api dump emits when it can't get a default 
 -- | utilities
 
 -- just a shitty parser for the api dump (some of them cause fuck roblox) TwT
-local function parse_default_value(value_type: string, raw: string?, enum_name: string?): any
+local function parse_default_value(value_type: string, raw: string?, enum_name: string?): any -- | THIS IS JUST TO FLEX REGEX ICL LMFAOOO YOU CAN JUST DO LIKE STRING.SPLIT(STR, ',') + TONUMBER ON MOST OF THESE TwT
 	if raw == nil or dump_guards[raw] then
 		return nil
 	end
