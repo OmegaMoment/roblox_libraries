@@ -481,10 +481,6 @@ function propertyservice.fetch_default_properties(class: string): {[string]: any
 	return property_to_value
 end
 
-local function get_property(inst, name)
-	return inst[name]
-end
-
 function propertyservice.fetch_runtime_default_properties(class: string): {[string]: any}
 	local cached = cache_runtime_defaults[class]
 	if cached then
@@ -509,7 +505,9 @@ function propertyservice.fetch_runtime_default_properties(class: string): {[stri
 	local runtime_defaults = {}
 
 	for name in properties do
-		local success, value = pcall(get_property, instance, name)
+		local success, value = pcall(function()
+			return instance[name]
+		end)
 
 		if success then
 			runtime_defaults[name] = value
