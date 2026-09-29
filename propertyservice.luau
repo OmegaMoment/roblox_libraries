@@ -50,18 +50,23 @@ local cache_services = {} -- [class] = {[property] = type}
 local cache_enums = {} -- [enum]  = enum data
 local cache_classes = {} -- [class] = class data
 
-local raw_api
-local api_dump_url = "https://raw.githubusercontent.com/MaximumADHD/Roblox-Client-Tracker/roblox/Full-API-Dump.json"
-
 -- | dependencies
 local HttpService = game:GetService("HttpService")
+
+local raw_api
+local api_dump_url = "https://raw.githubusercontent.com/MaximumADHD/Roblox-Client-Tracker/roblox/Full-API-Dump.json"
 
 -- | dump strings etc :3
 local unavailable_contexts = {
 	RobloxScriptSecurity = true,
 	RobloxSecurity = true,
 	LocalUserSecurity = true,
+	NotAccessibleSecurity = true,
 	PluginSecurity = true,
+}
+
+local unavailable_write_capabilities = {
+	PluginOrOpenCloud = true
 }
 
 local unavailable_tags = {
@@ -78,7 +83,9 @@ local dump_guards = { -- strings the api dump emits when it can't get a default 
 -- | utilities
 
 -- just a shitty parser for the api dump (some of them cause fuck roblox) TwT
-local function parse_default_value(value_type: string, raw: string?, enum_name: string?): any -- | THIS IS JUST TO FLEX REGEX ICL LMFAOOO YOU CAN JUST DO LIKE STRING.SPLIT(STR, ',') + TONUMBER ON MOST OF THESE TwT
+-- | THIS IS JUST TO FLEX REGEX ICL LMFAOOO YOU CAN JUST DO LIKE STRING.SPLIT(STR, ',') + TONUMBER ON MOST OF THESE TwT the speed loss is REALLY small
+-- | the reason there is one comes from the fact that resutls are wrapped with a table which is a garbage table cause we are gonna unpack anyway
+local function parse_default_value(value_type: string, raw: string?, enum_name: string?): any
 	if raw == nil or dump_guards[raw] then
 		return nil
 	end
@@ -299,16 +306,35 @@ function propertyservice.fetch_classes()
 					if unavailable_tags[tag] then
 						is_property = false
 						break
+						
 					elseif tag == "ReadOnly" then
 						is_readonly = true
 					end
 				end
 
 				local security = member.Security or {}
-				if security.Read and unavailable_contexts[security.Read] then
+				local write_sec = typeof(security) == "table" and security.Write or security
+
+				if typeof(security) == "table" and security.Read and unavailable_contexts[security.Read] then
 					is_property = false
-				elseif security.Write and unavailable_contexts[security.Write] then
+				elseif write_sec and write_sec ~= "None" then
 					is_readonly = true
+				end
+
+				if is_property and not is_readonly then
+					local caps = member.Capabilities
+					if typeof(caps) == "table" and caps.Write then
+						local any_allowed = false
+						for _, cap in caps.Write do
+							if not unavailable_write_capabilities[cap] then
+								any_allowed = true
+								break
+							end
+						end
+						if not any_allowed then
+							is_readonly = true
+						end
+					end
 				end
 
 				if is_property then
@@ -334,19 +360,25 @@ function propertyservice.fetch_classes()
 						if is_readonly then
 							if is_deprecated then
 								new_class.deprecated_properties[name] = value_type
+								
 							else
 								new_class.readonly_properties[name] = value_type
 							end
+							
 						else
 							if is_deprecated then
 								new_class.deprecated_properties[name] = value_type
+								
 							else
 								new_class.properties[name] = value_type
 							end
 						end
 					end
+					
 				end
+				
 			end
+			
 		end
 
 		propertyservice.classes[class.Name] = new_class
