@@ -80,6 +80,18 @@ local dump_guards = { -- strings the api dump emits when it can't get a default 
 	["__api_dump_no_string_value__"] = true
 }
 
+local blacklisted_property = {
+	-- for saving attachment world stuff..
+	WorldCFrame = true,
+	WorldPosition = true,
+	WorldOrientation = true,
+	WorldAxis = true,
+	WorldSecondaryAxis = true,
+	WorldRotation = true,
+	Axis = true,
+	SecondaryAxis = true,
+}
+
 -- | utilities
 
 -- just a shitty parser for the api dump (some of them cause fuck roblox) TwT
@@ -265,7 +277,7 @@ function propertyservice.fetch_classes()
 			saveable_properties = {},
 			saveable_loadable_properties = {},
 			serializable_properties = {}, -- just for my serializer icl-
-			
+
 			enum_names = {}, -- [property] = enum
 			tags = {},
 			is_creatable = true,
@@ -306,7 +318,7 @@ function propertyservice.fetch_classes()
 					if unavailable_tags[tag] then
 						is_property = false
 						break
-						
+
 					elseif tag == "ReadOnly" then
 						is_readonly = true
 					end
@@ -322,15 +334,16 @@ function propertyservice.fetch_classes()
 				end
 
 				if is_property and not is_readonly then
-					local caps = member.Capabilities
-					if typeof(caps) == "table" and caps.Write then
+					local capabilities = member.Capabilities
+					if typeof(capabilities) == "table" and capabilities.Write then
 						local any_allowed = false
-						for _, cap in caps.Write do
-							if not unavailable_write_capabilities[cap] then
+						for _, capability in capabilities.Write do
+							if not unavailable_write_capabilities[capability] then
 								any_allowed = true
 								break
 							end
 						end
+						
 						if not any_allowed then
 							is_readonly = true
 						end
@@ -355,30 +368,30 @@ function propertyservice.fetch_classes()
 						new_class.saveable_properties[name] = can_save
 						new_class.loadable_properties[name] = can_load
 						new_class.saveable_loadable_properties[name] = can_save and can_load
-						new_class.serializable_properties[name] = can_load and not is_readonly
+						new_class.serializable_properties[name] = can_load and not is_readonly and not blacklisted_property[name]
 
 						if is_readonly then
 							if is_deprecated then
 								new_class.deprecated_properties[name] = value_type
-								
+
 							else
 								new_class.readonly_properties[name] = value_type
 							end
-							
+
 						else
 							if is_deprecated then
 								new_class.deprecated_properties[name] = value_type
-								
+
 							else
 								new_class.properties[name] = value_type
 							end
 						end
 					end
-					
+
 				end
-				
+
 			end
-			
+
 		end
 
 		propertyservice.classes[class.Name] = new_class
@@ -423,7 +436,7 @@ function propertyservice.get_properties_of_class(class: string): ({[string]: str
 				count += 1
 				properties[name] = type
 				sorted_names[count] = name
-				serializable[name] = data.loadable_properties[name] == true
+				serializable[name] = data.serializable_properties[name] == true
 
 				if data.enum_names[name] then
 					enum_names[name] = data.enum_names[name]
